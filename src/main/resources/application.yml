@@ -1,0 +1,6 @@
+server:
+  port: 8089
+spring:
+  data:
+    rest:
+      base-path: /api
