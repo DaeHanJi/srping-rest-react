@@ -7,6 +7,8 @@ const follow = require('./follow');
 
 const root = '/api';
 
+var stompClient = require('./websocket-listener');
+
 class App extends React.Component {
 
     constructor(props) {
@@ -120,8 +122,57 @@ class App extends React.Component {
         }
     }
 
+    refreshAndGoToLastPage(message){
+        follow(client, root, [{
+            rel: 'employees',
+            params: {size: this.state.pageSize}
+        }]).done(response => {
+            if(response.entity._links.last !== undefined){
+                this.onNavigate(resopnse.entity._links.last.href);
+            }else {
+                this.onNavigate(resopnse.entity._links.self.href);
+            }
+        })
+    }
+
+    refreshCurrentPage(message){
+        follow(client, root, [{
+            rel: 'employees',
+            params: {
+                size: this.state.pageSize,
+                page: this.state.page.number
+            }
+        }]).then(employeecollection => {
+            this.links = employeecollection.entity._links;
+            this.page = employeecollection.entity.page;
+
+            return employeecollection.entity._embedded.employees.map(employee => {
+                return client({
+                    method: 'GET',
+                    path: employee._links.self.href
+                })
+            })
+        }).then(employeePromises => {
+            return when.all(employeepromises);
+        }).then(employees => {
+            this.setState({
+                page: this.page,
+                employees: employees,
+                attributes: Object.keys(this.schema.properties),
+                pageSize: this.state.pageSize,
+                links: this.links
+            });
+        });
+
+    }
+
     componentDidMount() {
         this.loadFormServer(this.state.pageSize);
+        stompClient.register([
+            {route: '/topic/newEmployee', callback: this.refreshAndGoToLastPage},
+            {route: '/topic/updateEmployee', callback: this.refreshCurrentPage},
+            {route: '/topic/deleteEmployee', callback: this.refreshCurrentPage}
+        ])
     }
 
     render() {
