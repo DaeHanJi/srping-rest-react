@@ -4,3 +4,8 @@ spring:
   data:
     rest:
       base-path: /api
+  devtools:
+    livereload:
+      enabled: true
+  thymeleaf:
+    cache: false

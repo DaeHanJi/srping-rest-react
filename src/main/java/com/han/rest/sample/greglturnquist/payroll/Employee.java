@@ -1,8 +1,11 @@
 package com.han.rest.sample.greglturnquist.payroll;
 
+import net.minidev.json.annotate.JsonIgnore;
+
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
+import javax.persistence.Version;
 import java.util.Objects;
 
 @Entity
@@ -14,15 +17,19 @@ public class Employee {
     private String firstName;
     private String lastName;
     private String description;
+    @Version
+    @JsonIgnore
+    private Long version;
 
     public Employee() {
     }
 
-    public Employee(String firstName, String lastName, String description){
+    public Employee(String firstName, String lastName, String description) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.description = description;
     }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -69,6 +76,14 @@ public class Employee {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     @Override
