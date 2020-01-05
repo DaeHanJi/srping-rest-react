@@ -1,3 +1,5 @@
+'use strict';
+
 const React = require('react');
 const ReactDOM = require('react-dom');
 const when = require('when');
@@ -13,12 +15,15 @@ class App extends React.Component {
 
     constructor(props) {
         super(props);
-        this.state = {employees: [], attributes: [], pageSize: 2, links: {}};
+        this.state = {employees: [], attributes: [], page: 1, pageSize: 2, links: {}};
         this.updatePageSize = this.updatePageSize.bind(this);
         this.onCreate = this.onCreate.bind(this);
         this.onUpdate = this.onUpdate.bind(this);
         this.onDelete = this.onDelete.bind(this);
         this.onNavigate = this.onNavigate.bind(this);
+        this.refreshCurrentPage = this.refreshCurrentPage.bind(this);
+        this.refreshAndGoToLastPage = this.refreshAndGoToLastPage.bind(this);
+        console.log('version check 6')
     }
 
     loadFormServer(pageSize) {
@@ -35,6 +40,7 @@ class App extends React.Component {
                 return employeeCollection;
             });
         }).then(employeeCollection => {
+            this.page = employeeCollection.entity.page;
             return employeeCollection.entity._embedded.employees.map(employee =>
                 client({
                     method: 'GET',
@@ -45,6 +51,7 @@ class App extends React.Component {
             return when.all(employeePromises);
         }).done(employees => {
             this.setState({
+                page: this.page,
                 employees: employees,
                 attributes: Object.keys(this.schema.properties),
                 pageSize: pageSize,
@@ -101,6 +108,8 @@ class App extends React.Component {
     onNavigate(navUri) {
         client({method: 'GET', path: navUri}).then(employeeCollection => {
             this.links = employeeCollection.entity._links;
+            this.page = employeeCollection.entity.page;
+
             return employeeCollection.entity._embedded.employees.map(employee =>
                 client({method: 'GET', path: employee._links.self.href})
             );
@@ -108,6 +117,7 @@ class App extends React.Component {
             return when.all(employeePromises);
         }).done(employees => {
             this.setState({
+                page: this.page,
                 employees: employees,
                 attributes: Object.keys(this.schema.properties),
                 pageSize: this.state.pageSize,
@@ -136,6 +146,7 @@ class App extends React.Component {
     }
 
     refreshCurrentPage(message){
+        console.log('refreshCurrentPage : ',this,this.state)
         follow(client, root, [{
             rel: 'employees',
             params: {
@@ -153,7 +164,7 @@ class App extends React.Component {
                 })
             })
         }).then(employeePromises => {
-            return when.all(employeepromises);
+            return when.all(employeePromises);
         }).then(employees => {
             this.setState({
                 page: this.page,
@@ -167,6 +178,7 @@ class App extends React.Component {
     }
 
     componentDidMount() {
+        console.log('componentDidMount',this)
         this.loadFormServer(this.state.pageSize);
         stompClient.register([
             {route: '/topic/newEmployee', callback: this.refreshAndGoToLastPage},
@@ -180,6 +192,7 @@ class App extends React.Component {
             <div>
                 <CreateDialog attributes={this.state.attributes} onCreate={this.onCreate}/>
                 <EmployeeList employees={this.state.employees}
+                              page={this.state.page}
                               links={this.state.links}
                               pageSize={this.state.pageSize}
                               attributes={this.state.attributes}
@@ -325,6 +338,8 @@ class EmployeeList extends React.Component {
 
 
     render() {
+        console.log(this)
+        const pageInfo = this.props.page.hasOwnProperty("number") ? <h3>Employees - Page {this.props.page.number + 1} of {this.props.page.totalPages}</h3> : null;
         const employees = this.props.employees.map(employee =>
             <Employee key={employee.entity._links.self.href}
                       employee={employee}
@@ -334,7 +349,6 @@ class EmployeeList extends React.Component {
         );
 
         const navLinks = [];
-
         if ("first" in this.props.links) {
             navLinks.push(<button key="first" onClick={this.handleNavFirst}>&lt;&lt;</button>)
         }
@@ -350,6 +364,7 @@ class EmployeeList extends React.Component {
 
         return (
             <div>
+                {pageInfo}
                 <input ref="pageSize" defaultValue={this.props.pageSize} onInput={this.handleInput}/>
                 <table>
                     <tbody>
