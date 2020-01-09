@@ -15,7 +15,8 @@ class App extends React.Component {
 
     constructor(props) {
         super(props);
-        this.state = {employees: [], attributes: [], page: 1, pageSize: 2, links: {}};
+        console.log('constructor: ',props);
+        this.state = {employees: [], attributes: [], page: 1, pageSize: 2, links: {}, loggedInManager: this.props.loggedInManager};
         this.updatePageSize = this.updatePageSize.bind(this);
         this.onCreate = this.onCreate.bind(this);
         this.onUpdate = this.onUpdate.bind(this);
@@ -23,7 +24,7 @@ class App extends React.Component {
         this.onNavigate = this.onNavigate.bind(this);
         this.refreshCurrentPage = this.refreshCurrentPage.bind(this);
         this.refreshAndGoToLastPage = this.refreshAndGoToLastPage.bind(this);
-        console.log('version check 6')
+        console.log('version check 11');
     }
 
     loadFormServer(pageSize) {
@@ -35,6 +36,13 @@ class App extends React.Component {
                 path: employeeCollection.entity._links.profile.href,
                 headers: {'Accept': 'application/schema+json'}
             }).then(schema => {
+                Object.keys(schema.entity.properties).forEach(function(property){
+                    if(schema.entity.properties[property].hasOwnProperty('format') && schema.entity.properties[property].format === 'uri'){
+                        delete schema.entity.properties[property];
+                    }else if(schema.entity.properties[property].hasOwnProperty('$ref')){
+                        delete schema.entity.properties[property];
+                    }
+                })
                 this.schema = schema.entity;
                 this.links = employeeCollection.entity._links;
                 return employeeCollection;
@@ -82,26 +90,40 @@ class App extends React.Component {
     }
 
     onUpdate(employee, updateEmployee) {
-        client({
-            method: 'PUT',
-            path: employee.entity._links.self.href,
-            entity: updateEmployee,
-            header: {
-                'Content-Type': 'application/json',
-                'If-Match': employee.headers.Etag
-            }
-        }).done(response => {
-            this.loadFormServer(this.state.pageSize);
-        }, response => {
-            if (response.status.code === 412) {
-                alert('DENIED: Unable to update ' + employee.entity._links.self.href + '. Your copy is stale.');
-            }
-        });
+        // if(employee.entity.manager.name === this.state.loggedInManager){
+            updateEmployee["manager"] = employee.entity.manager;
+
+            client({
+                method: 'PUT',
+                path: employee.entity._links.self.href,
+                entity: updateEmployee,
+                header: {
+                    'Content-Type': 'application/json',
+                    'If-Match': employee.headers.Etag
+                }
+            }).done(response => {
+                // this.loadFormServer(this.state.pageSize);
+                /* Let the websocket handler update the state. */
+            }, response => {
+                if(response.status.code === 403){
+                    alert('ACCESS DENIED: You are not authorized to update '+employee.entity._link.self.href);
+                }
+                if (response.status.code === 412) {
+                    alert('DENIED: Unable to update ' + employee.entity._links.self.href + '. Your copy is stale.');
+                }
+            });
+        // } else {
+        //     alert("You are not authorized to update");
+        // }
     };
 
     onDelete(employee) {
         client({method: 'DELETE', path: employee.entity._links.self.href}).done(response => {
-            this.loadFormServer(this.state.pageSize);
+            // this.loadFormServer(this.state.pageSize);
+            /* let the websocket handle updating the UI */
+            if(response.status.code === 403){
+                alert('ACCESS DENIED: You are not authorized to delete '+employee.entity._links.selft.href);
+            }
         });
     }
 
@@ -146,7 +168,6 @@ class App extends React.Component {
     }
 
     refreshCurrentPage(message){
-        console.log('refreshCurrentPage : ',this,this.state)
         follow(client, root, [{
             rel: 'employees',
             params: {
@@ -178,7 +199,6 @@ class App extends React.Component {
     }
 
     componentDidMount() {
-        console.log('componentDidMount',this)
         this.loadFormServer(this.state.pageSize);
         stompClient.register([
             {route: '/topic/newEmployee', callback: this.refreshAndGoToLastPage},
@@ -338,7 +358,6 @@ class EmployeeList extends React.Component {
 
 
     render() {
-        console.log(this)
         const pageInfo = this.props.page.hasOwnProperty("number") ? <h3>Employees - Page {this.props.page.number + 1} of {this.props.page.totalPages}</h3> : null;
         const employees = this.props.employees.map(employee =>
             <Employee key={employee.entity._links.self.href}
@@ -400,9 +419,13 @@ class Employee extends React.Component {
                 <td>{this.props.employee.entity.firstName}</td>
                 <td>{this.props.employee.entity.lastName}</td>
                 <td>{this.props.employee.entity.description}</td>
+                <td>{this.props.employee.entity.manager.name}</td>
                 <td>
-                    <UpdateDialog employee={this.props.employee} attributes={this.props.attributes}
-                                  onUpdate={this.props.onUpdate}/>
+                    <UpdateDialog employee={this.props.employee}
+                                  attributes={this.props.attributes}
+                                  onUpdate={this.props.onUpdate}
+                                  loggedInManager={this.props.loggedInManager}
+                    />
                 </td>
                 <td>
                     <button onClick={this.handleDelete}>Delete</button>
@@ -415,6 +438,6 @@ class Employee extends React.Component {
 
 
 ReactDOM.render(
-    <App/>,
+    <App loggedInManager={document.getElementById('managername').innerHTML}/>,
     document.getElementById('react')
 )

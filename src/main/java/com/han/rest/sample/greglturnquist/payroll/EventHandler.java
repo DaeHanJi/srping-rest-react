@@ -27,24 +27,20 @@ public class EventHandler {
 
     @HandleAfterDelete
     public void newEmployee(Employee employee) {
-        log.debug("TEST : newEmployee");
         this.websocket.convertAndSend(MESSAGE_PREFIX + "/newEmployee", getPath(employee));
     }
 
     @HandleAfterDelete
     public void deleteEmployee(Employee employee) {
-        log.debug("TEST : deleteEmployee");
         this.websocket.convertAndSend(MESSAGE_PREFIX + "/deleteEmployee", getPath(employee));
     }
 
     @HandleAfterSave
     public void updateEmployee(Employee employee) {
-        log.debug("TEST : updateEmployee {}::{}",MESSAGE_PREFIX + "/updateEmployee", getPath(employee));
         this.websocket.convertAndSend(MESSAGE_PREFIX + "/updateEmployee", getPath(employee));
     }
 
     private String getPath(Employee employee) {
-        log.debug("TEST : getPath");
         return this.entityLinks.linkForItemResource(employee.getClass(), employee.getId()).toUri().getPath();
     }
 }

@@ -2,10 +2,7 @@ package com.han.rest.sample.greglturnquist.payroll;
 
 import net.minidev.json.annotate.JsonIgnore;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import javax.persistence.Version;
+import javax.persistence.*;
 import java.util.Objects;
 
 @Entity
@@ -20,14 +17,17 @@ public class Employee {
     @Version
     @JsonIgnore
     private Long version;
+    @ManyToOne
+    private Manager manager;
 
     public Employee() {
     }
 
-    public Employee(String firstName, String lastName, String description) {
+    public Employee(String firstName, String lastName, String description, Manager manager) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.description = description;
+        this.manager = manager;
     }
 
     @Override
@@ -38,12 +38,14 @@ public class Employee {
         return Objects.equals(id, employee.id) &&
                 Objects.equals(firstName, employee.firstName) &&
                 Objects.equals(lastName, employee.lastName) &&
-                Objects.equals(description, employee.description);
+                Objects.equals(description, employee.description) &&
+                Objects.equals(version, employee.version) &&
+                Objects.equals(manager, employee.manager);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, firstName, lastName, description);
+        return Objects.hash(id, firstName, lastName, description, version, manager);
     }
 
     public Long getId() {
@@ -84,6 +86,14 @@ public class Employee {
 
     public void setVersion(Long version) {
         this.version = version;
+    }
+
+    public Manager getManager() {
+        return manager;
+    }
+
+    public void setManager(Manager manager) {
+        this.manager = manager;
     }
 
     @Override
